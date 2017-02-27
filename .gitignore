@@ -1,0 +1,136 @@
+##############################################################################################################
+############################# GRÁFICAS DE PRODUCTOS EN FUNCIÓN DE SEMANAS Y CANTIDAD #########################
+##############################################################################################################
+##############################################################################################################
+
+
+#################### ORDENAR LOS PRODUCTOS EN FUNCIÓN DE LAS DISTINTAS SEMANAS ###############################
+
+train_compt_prod <-func_producto(train_compt)
+train_compt_prod <- data.table(func_nombre_prod(train_compt_prod))
+
+setkey(train_compt_prod,Producto_nombre,Semana)
+train_compt_prod1 <-train_compt_prod[ , .N, .(Producto_nombre, Semana)]
+length(unique(train_compt_prod1$Producto_nombre))
+
+train_compt_prod1 # numero de apariciones de productos por semana
+#                  Producto_nombre Semana N
+# 1:                                    8 1
+# 2:                   Animalitos       5 1
+# 3:   Animalitos Karamelo Hierro       3 1
+# 4:   Animalitos Karamelo Hierro       5 3
+# 5:   Animalitos Karamelo Hierro       7 1
+# ---                                     
+# 858:                     Wonder       4 4
+# 859:                     Wonder       5 4
+# 860:                     Wonder       6 1
+# 861:                     Wonder       8 2
+# 862:                     Wonder       9 6
+
+####### filtrar por los productos más aparecidos( los que tienen más pedidos, pero no la cantidad)
+train_compt_prod_appears <- train_compt_prod[, .N, by = .(Producto_nombre) ]
+setkey(train_compt_prod_appears, N) # ordenamos en función del num de apariciones del producto 
+train_compt_prod_appears
+
+#               Producto_nombre   N
+# 1:                              1
+# 2:                Animalitos    1
+# 3:      Barra Multigrano Mix    1
+# 4:   Bigotes Crema Pastelera    1
+# 5:   Bimbollos Ext sAjonjoli    1
+# ---                             
+# 205:              Pan Blanco  175
+# 206:   Donitas Espolvoreadas  181
+# 207:            Pan Integral  187
+# 208:     Mantecadas Vainilla  188
+# 209:                    Nito  202
+
+#train_compt_prod[, .N, by = .(Producto_nombre) ] # número top de apariciones
+topseven_prod <- train_compt_prod_appears$Producto_nombre[nrow(train_compt_prod_appears):(nrow(train_compt_prod_appears)-6)]
+topseven_prod <- as.vector(topseven_prod)
+topseven_prod
+# [1] Nito                   Mantecadas Vainilla    Pan Integral           Donitas Espolvoreadas  Pan Blanco            
+# [6] Donas Azucar           Rebanada     
+
+
+############# planteemos un Line chart para representar los datos:
+
+#https://cran.r-project.org/web/packages/googleVis/vignettes/googleVis_examples.html
+# cada una de las observaciones que quiera plantear para los diez primeros valores con longitud 10(como el número de valores)
+#install.packages("googleVis")
+library(googleVis)
+
+
+#train_compt_prod1[(Producto_nombre == topseven_prod)] NO PUEDO HACERLO PUES topseven_prod ES UN VECTOR
+
+x <- train_compt_prod1[  Producto_nombre %in% topseven_prod]
+df <- spread(x,  Semana, N)
+#           Producto_nombre  3  4  5  6  7  8  9
+# 1:          Donas Azucar  19 20 21 14 26 18 19
+# 2: Donitas Espolvoreadas  26 21 29 20 23 24 17
+# 3:   Mantecadas Vainilla  36 41 27 23 30 25 26
+# 4:                  Nito  27 40 43 25 27 37 28
+# 5:            Pan Blanco  29 23 22 21 25 22 21
+# 6:          Pan Integral  21 26 29 29 35 28 25
+# 7:              Rebanada  18 24 23 26 24 19 15
+
+# PUES BUSCABA UN DATA FRAME SIMILAR A ESTE:
+# > df
+# country val1 val2
+# 1      US   10   23
+# 2      GB   13   12
+# 3      BR   14   32
+
+
+
+# EVITO HACER EL SIGUIENTE FOR
+#
+# val <- list()
+# for (i in 1:10){
+#   val[[i]] <- train_compt_prod1[ Producto_nombre == topseven_prod[i]]$N
+#   
+# } 
+# 
+# df=data.frame(as.vector(topseven_prod), val[[1]], val[[2]], val[[3]], val[[4]], val[[5]], val[[6]], val[[7]])
+
+
+Line <- gvisLineChart(df)
+plot(Line)
+
+
+################# planteamos ahora un gvisAnnotationChart para representar los datos:
+
+train_compt_prod2 <- train_compt_prod1
+train_compt_prod2$Semana <- as.Date(train_compt_prod2$Semana , origin = "2016-01-01")
+train_compt_prod2
+train_compt_prod3 <- train_compt_prod2[Producto_nombre %in%  topseven_prod] # me quedo con las 3 variables
+train_compt_prod3
+
+
+
+Anno <-gvisAnnotationChart(train_compt_prod3, datevar = "Semana", 
+                           numvar = "N", idvar = "Producto_nombre",
+                           options=list(width=600, height=350,
+                                        fill=10, displayExactValues=TRUE,
+                                        colors="['red', 'black',
+                                        'green' ,'blue',
+                                        'yellow', 'pink']"))
+
+# [1] "darkred" "indianred" "indianred1" "indianred2" 
+# [5] "indianred3" "indianred4"
+
+plot(Anno)
+
+
+
+train_compt_prod3
+AnnoTimeLine  <- gvisAnnotatedTimeLine(train_compt_prod3, 
+                                       datevar="Semana",
+                                       numvar="N", 
+                                       idvar="Producto_nombre",
+                                       options=list(width=600, height=350,
+                                        fill=10, displayExactValues=TRUE,
+                                        colors="['red', 'black',
+                                        'green' ,'blue',
+                                        'yellow', 'pink']"))
+plot(AnnoTimeLine)
